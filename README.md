@@ -38,11 +38,11 @@ I built the **Quantum Orbital Explorer** to provide a real-time, mathematically 
 * **Quantum State Cards:** Live readouts for n, l, and mₗ along with degenerate state counts.
 * **Node Analysis:** Automatic analytical breakdown of radial nodes (n − l − 1), angular nodes (l), and total nodes (n − 1).
 * **Integrated Probability Bands:** Numerically integrates P(r) using the trapezoidal rule to calculate the precise percentage share of electron density trapped between consecutive radial nodes.
-* **Property Dashboard:** Displays energy levels (E♜), mean radius ⟨r⟩, most probable radius r_mp, orbital angular momentum, electron density at the nucleus, and numerical normalization verification (∫ r²R² dr = 1).
+* **Property Dashboard:** Displays energy levels (Eₙ), mean radius ⟨r⟩, most probable radius r_mp, orbital angular momentum, electron density at the nucleus, and numerical normalization verification (∫ r²R² dr = 1).
 
 ### 4. Interactive 3D Angular Shape Explorer (s, p, d, f)
 * **Custom Software Z-Buffer Rasterizer:** Written completely from scratch in JavaScript (no Three.js or WebGL dependency) to render, shade, and depth-sort 3D spherical harmonics.
-* **Isosurface Generation:** Solves polar plotting limitations where shapes like d_z² and f_z³ pinch into flat discs. Instead, ray-marched isosurfaces of |ψ| are used to render true 3D tori (doughnut rings) with hollow centers.
+* **Isosurface Generation:** Solves polar plotting limitations where shapes like dz² and fz³ pinch into flat discs. Instead, ray-marched isosurfaces of |ψ| are used to render true 3D tori (doughnut rings) with hollow centers.
 * **Controls:** Drag or use arrow keys to rotate, inspect positive/negative phase colors, double-click to reset, and toggle touch-friendly Free Rotate mode.
 
 ---
