@@ -1,4 +1,4 @@
-# Quantum Orbital Explorer 🌌⚛️
+# Quantum Orbital Explorer ⚛️
 
 An interactive, zero-dependency web application for visualizing hydrogen-like atomic orbitals, radial wave functions, probability distribution curves, and 3D angular shapes. 
 
@@ -13,6 +13,9 @@ Built entirely with **pure HTML5, CSS3, and Vanilla JavaScript (ES6+)** using th
 > *(Tip: Drag & drop your app screenshots here while editing this README on GitHub!)*
 
 ![Quantum Orbital Explorer Dashboard](https://via.placeholder.com/1200x600/0a0a1e/ffffff?text=Main+Dashboard+Preview)
+<img width="1920" height="1080" alt="Screenshot (1367)" src="https://github.com/user-attachments/assets/32597ae4-d8c8-4408-a9c7-72e346d32a7c" />
+<img width="1920" height="1080" alt="Screenshot (1366)" src="https://github.com/user-attachments/assets/9100d2ce-dd9c-4fc2-8b6b-1f496ba2c8de" />
+<img width="1920" height="1080" alt="Screenshot (1364)" src="https://github.com/user-attachments/assets/09de134c-b62e-4dfa-beda-6d7a59827be1" />
 
 ---
 
