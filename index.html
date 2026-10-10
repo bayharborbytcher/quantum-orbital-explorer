@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Orbital Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #05050f;
+    --panel: #0a0a1e;
+    --border: #1c1c3a;
+    --text: #e2e2f0;
+    --muted: #6666a0;
+    --c1s: #06ffa5;
+    --c2s: #00cfff;
+    --c2p: #ff7043;
+    --c3s: #bf7bff;
+    --c3p: #ffc107;
+    --c3d: #ff4c8b;
+    --node-color: #ff3355;
+    --grid: #12122a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Space Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Header ── */
+  :root { --hdr: calc(64px + env(safe-area-inset-top, 0px)); color-scheme: dark; }
+  html { scroll-padding-top: var(--hdr); }
+  header {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 40;
+    height: var(--hdr); padding: env(safe-area-inset-top, 0px) 28px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 16px;
+    background: linear-gradient(90deg, #080822ee 0%, #05050fee 100%);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  }
+  .menu-btn {
+    display: none; flex-shrink: 0; width: 40px; height: 40px; border-radius: 8px;
+    border: 1px solid var(--border); background: transparent; color: var(--text);
+    font-size: 18px; cursor: pointer; align-items: center; justify-content: center;
+  }
+  .backdrop { display: none; position: fixed; inset: 0; background: #000000aa; z-index: 25; }
+  header h1 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+    color: #fff;
+  }
+  header span {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── Layout ── */
+  .app {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    grid-template-rows: auto auto;
+    gap: 0;
+    min-height: calc(100vh - var(--hdr));
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    position: sticky; top: var(--hdr); align-self: start; z-index: 30;
+    height: calc(100vh - var(--hdr)); overflow-y: auto; overscroll-behavior: contain;
+    border-right: 1px solid var(--border);
+    padding: 20px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+    display: flex; flex-direction: column; gap: 6px;
+    background: var(--panel);
+    transition: transform .3s ease;
+  }
+  .sidebar-title {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .orbital-btn {
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    padding: 9px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: left;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .orbital-btn:hover {
+    border-color: var(--muted);
+    color: var(--text);
+  }
+  .orbital-btn.active {
+    color: #fff;
+    background: #ffffff08;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .sidebar-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* compare toggles */
+  .compare-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    cursor: pointer;
+  }
+  .toggle-row span { font-size: 11px; color: var(--muted); }
+  .checkbox {
+    width: 14px; height: 14px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .checkbox.checked { background: #ffffff22; border-color: var(--muted); }
+  .checkbox.checked::after { content: '✓'; font-size: 9px; color: #fff; }
+
+  /* ── Main content ── */
+  .main {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .plots-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .plot-wrap {
+    background: var(--panel);
+    padding: 20px;
+    position: relative;
+  }
+  .plot-label {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    color: #fff;
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+  }
+  .plot-sub {
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 14px;
+    font-style: italic;
+  }
+  canvas { display: block; width: 100%; }
+
+  /* ── Info panel ── */
+  .info-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .info-card {
+    background: var(--panel);
+    padding: 16px 20px;
+  }
+  .info-card .label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .info-card .value {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+  }
+  .info-card .sub {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* ── Node analysis ── */
+  .bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    flex: 1;
+  }
+  .node-panel, .shape-panel {
+    background: var(--panel);
+    padding: 20px 24px;
+    overflow-y: auto;
+  }
+  .panel-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: #fff;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .node-list { display: flex; flex-direction: column; gap: 10px; }
+  .node-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 12px;
+    background: #ffffff05;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .node-badge {
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    font-weight: 700;
+  }
+  .radial-badge { background: #ff335533; color: #ff6688; border: 1px solid #ff335566; }
+  .angular-badge { background: #00ccff33; color: #33ddff; border: 1px solid #00ccff66; }
+  .node-desc { font-size: 12px; color: #d0d0ee; line-height: 1.6; }
+  .node-pos { font-size: 11px; color: #9999cc; margin-top: 4px; font-weight: 600; }
+
+  /* ── d-orbital angular shapes ── */
+  .d-shapes-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    padding: 4px 0;
+  }
+  .d-shape-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 160px;
+  }
+  .d-shape-name {
+    font-size: 14px;
+    font-weight: 700;
+    text-align: center;
+    font-family: 'Syne', sans-serif;
+  }
+  .d-canvas-wrap {
+    width: 160px; height: 160px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #08081a;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .d-shape-desc {
+    font-size: 11px;
+    color: #9999cc;
+    text-align: center;
+    line-height: 1.5;
+    font-weight: 500;
+    max-width: 150px;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 10px;
+  }
+  .leg-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .leg-line { width: 20px; height: 2px; border-radius: 1px; }
+  .leg-line.dashed {
+    background: repeating-linear-gradient(90deg, var(--node-color) 0px, var(--node-color) 4px, transparent 4px, transparent 8px);
+    height: 1px;
+  }
+
+  /* node glow text */
+  .glow { text-shadow: 0 0 12px currentColor; }
+
+  /* tooltip */
+  .tooltip {
+    position: fixed;
+    background: #12122a;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--text);
+    pointer-events: none;
+    display: none;
+    z-index: 100;
+    max-width: min(80vw, 320px);
+    line-height: 1.6;
+    white-space: normal;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* compare mode message */
+  .compare-note {
+    font-size: 10px;
+    color: var(--muted);
+    padding: 6px 10px;
+    background: #ffffff06;
+    border-radius: 4px;
+    margin-top: 8px;
+  }
+  /* ── Phone layout, focus and motion ── */
+  .orbital-btn { min-height: 38px; touch-action: manipulation; }
+  .toggle-row { min-height: 26px; touch-action: manipulation; }
+  .menu-btn:focus-visible, .orbital-btn:focus-visible, .toggle-row:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
+  .plot-wrap canvas { touch-action: pan-y; }
+  @media (max-width: 860px) {
+    :root { --hdr: calc(56px + env(safe-area-inset-top, 0px)); }
+    header { padding-left: 16px; padding-right: 16px; gap: 12px; }
+    header h1 { font-size: 16px; }
+    header span { display: none; }
+    .menu-btn { display: inline-flex; }
+    .app { grid-template-columns: 1fr; }
+    .sidebar {
+      position: fixed; top: var(--hdr); bottom: 0; left: 0; height: auto; width: min(290px, 84vw);
+      transform: translateX(-105%); box-shadow: 10px 0 30px #000000aa;
+    }
+    body.drawer-open .sidebar { transform: translateX(0); }
+    body.drawer-open .backdrop { display: block; }
+    .plots-row, .bottom-row { grid-template-columns: 1fr; }
+    .plot-wrap { padding: 16px 12px; }
+    .plot-sub { font-size: 9.5px; }
+    .info-bar { grid-template-columns: repeat(2, 1fr); }
+    .info-card { padding: 14px 16px; }
+    .info-card .value { font-size: 18px; }
+    .node-panel, .shape-panel { padding: 18px 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+  /* ── 3D orbital cards ── */
+  .d-shapes-grid { gap: 18px 16px; }
+  .d-shape-item { width: var(--S, 176px); }
+  .d-canvas-wrap { width: var(--S, 176px); height: var(--S, 176px); }
+  .d-canvas-wrap:focus-within { border-color: var(--muted); }
+  .d-canvas-wrap canvas { outline: none; }
+  .d-shape-desc { max-width: var(--S, 176px); }
+  #compare-list, #compare-list-rdf { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; }
+  .shape-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-bottom: 14px; font-size: 10px; color: var(--muted); }
+  .ph { display: inline-flex; align-items: center; gap: 6px; }
+  .ph i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .free-btn { margin-left: auto; border: 1px solid var(--border); background: transparent; color: var(--muted); border-radius: 6px; padding: 7px 12px; font: inherit; font-size: 10px; cursor: pointer; }
+  .free-btn.on { color: #fff; border-color: var(--muted); background: #ffffff10; }
+  @media (pointer: fine) { .free-btn { display: none; } }
+  @media (pointer: coarse) { .d-canvas-wrap canvas { touch-action: pan-y; } .free .d-canvas-wrap canvas { touch-action: none; } }
+  /* ── v4: titles, facts, smooth selection ── */
+  .panel-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+  .panel-title.sec { margin-top: 22px; }
+  .pt-orb { text-shadow: 0 0 12px currentColor; }
+  .pt-sub { font-family: 'Space Mono', monospace; font-weight: 400; font-size: 10px; color: var(--muted); }
+  .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .fact { padding: 10px 12px; background: #ffffff05; border: 1px solid var(--border); border-radius: 6px; min-width: 0; }
+  .fl { font-size: 10px; letter-spacing: .5px; color: var(--muted); margin-bottom: 5px; }
+  .fv { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; color: #fff; overflow-wrap: anywhere; }
+  .fs { font-size: 10px; color: #9999cc; margin-top: 4px; line-height: 1.5; }
+  .band { display: grid; grid-template-columns: minmax(84px, 118px) 1fr 48px; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 11px; color: #d0d0ee; }
+  .band .bar { height: 8px; border-radius: 4px; background: #ffffff0a; overflow: hidden; }
+  .band .bar i { display: block; height: 100%; width: var(--w); border-radius: 4px; transform-origin: left; animation: grow .8s cubic-bezier(.2,.8,.2,1) both; }
+  .band b { text-align: right; font-weight: 700; color: #fff; }
+  .mp-dot { width: 8px; height: 8px; border-radius: 50%; background: #aaaacc; display: inline-block; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes grow { from { transform: scaleX(0); } }
+  .fade { animation: rise .38s ease both; }
+  .orbital-btn.active { border-color: var(--c); background: color-mix(in srgb, var(--c) 11%, transparent); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 22%, transparent), inset 3px 0 0 var(--c); }
+  .orbital-btn .dot { transition: transform .25s; }
+  .orbital-btn.active .dot { transform: scale(1.35); }
+  .compare-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .compare-head .compare-label { margin: 0; }
+  .clear-btn { border: 1px solid var(--border); background: transparent; color: var(--muted); border-radius: 5px; padding: 3px 8px; font: inherit; font-size: 10px; cursor: pointer; transition: all .2s; }
+  .clear-btn:hover:not(:disabled) { color: #fff; border-color: var(--muted); }
+  .clear-btn:disabled { opacity: .35; cursor: default; }
+  .toggle-row { padding: 3px 4px; border-radius: 5px; transition: background .2s; }
+  .toggle-row:hover { background: #ffffff08; }
+  .toggle-row span { transition: color .25s; }
+  .checkbox { transition: background .25s, border-color .25s, box-shadow .25s; }
+  .checkbox::after { content: '✓'; font-size: 9px; color: #fff; transform: scale(0); transition: transform .2s cubic-bezier(.3,1.6,.5,1); }
+  .toggle-row.on .checkbox { background: color-mix(in srgb, var(--c) 28%, transparent); border-color: var(--c); box-shadow: 0 0 8px color-mix(in srgb, var(--c) 45%, transparent); }
+  .toggle-row.on .checkbox::after { transform: scale(1); }
+  .toggle-row.on span { color: var(--c); }
+  .toggle-row:focus-visible, .clear-btn:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
+  @media (max-width: 420px) { .facts { grid-template-columns: 1fr; } }
+  #leg-main, #leg-rdf { transition: background .6s ease; }
+</style>
+</head>
+<body>
+
+<header>
+  <button class="menu-btn" id="menu-btn" aria-label="Open orbital menu">&#9776;</button>
+  <h1>Quantum Orbital Explorer</h1>
+  <span>Hydrogen-like wave functions · Atomic units (<span style="text-transform:none">a₀</span> = 1)</span>
+</header>
+
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-title">Select Orbital</div>
+
+    <button class="orbital-btn active" data-orb="1s">
+      <span class="dot" style="background:#06ffa5;box-shadow:0 0 6px #06ffa5"></span>1s
+    </button>
+    <button class="orbital-btn" data-orb="2s">
+      <span class="dot" style="background:#00cfff;box-shadow:0 0 6px #00cfff"></span>2s
+    </button>
+    <button class="orbital-btn" data-orb="2p">
+      <span class="dot" style="background:#ff7043;box-shadow:0 0 6px #ff7043"></span>2p
+    </button>
+    <button class="orbital-btn" data-orb="3s">
+      <span class="dot" style="background:#bf7bff;box-shadow:0 0 6px #bf7bff"></span>3s
+    </button>
+    <button class="orbital-btn" data-orb="3p">
+      <span class="dot" style="background:#ffc107;box-shadow:0 0 6px #ffc107"></span>3p
+    </button>
+    <button class="orbital-btn" data-orb="3d">
+      <span class="dot" style="background:#ff4c8b;box-shadow:0 0 6px #ff4c8b"></span>3d
+    </button>
+    <button class="orbital-btn" data-orb="4s">
+      <span class="dot" style="background:#b6ff3b;box-shadow:0 0 6px #b6ff3b"></span>4s
+    </button>
+    <button class="orbital-btn" data-orb="4p">
+      <span class="dot" style="background:#6c8cff;box-shadow:0 0 6px #6c8cff"></span>4p
+    </button>
+    <button class="orbital-btn" data-orb="4d">
+      <span class="dot" style="background:#ff9f43;box-shadow:0 0 6px #ff9f43"></span>4d
+    </button>
+    <button class="orbital-btn" data-orb="4f">
+      <span class="dot" style="background:#f0abfc;box-shadow:0 0 6px #f0abfc"></span>4f
+    </button>
+
+    <div class="sidebar-section">
+      <div class="compare-head"><div class="compare-label">Overlay · <span style="text-transform:none">ψ(r)</span></div><button class="clear-btn" id="clear-compare-list" disabled>Clear</button></div>
+      <div id="compare-list"></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="compare-head"><div class="compare-label">Overlay · <span style="text-transform:none">ψ²(r)</span></div><button class="clear-btn" id="clear-compare-list-rdf" disabled>Clear</button></div>
+      <div id="compare-list-rdf"></div>
+      <div class="compare-note">Tick orbitals to overlay them on each plot. Clear returns to the single-orbital view.</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Plots -->
+    <div class="plots-row">
+      <div class="plot-wrap">
+        <div class="plot-label">ψ(r) — Radial Wave Function R(r)</div>
+        <div class="plot-sub">Radial part R(r) of ψ = R(r)·Yₗᵐ(θ,φ) · sign changes mark radial nodes · for s-orbitals ψ ∝ R(r)</div>
+        <canvas id="plotR" height="300"></canvas>
+        <div class="legend">
+          <div class="leg-item"><div class="leg-line" id="leg-main" style="background:#06ffa5"></div><span id="leg-main-label">1s</span></div>
+          <div class="leg-item"><div class="leg-line dashed"></div><span>Radial node (ψ = 0)</span></div>
+        </div>
+      </div>
+      <div class="plot-wrap">
+        <div class="plot-label">ψ²(r) — Radial Distribution P(r) = r²R²(r)</div>
+        <div class="plot-sub">Probability per unit radius, ∫P(r)dr = 1 · always ≥ 0 · the r² factor is the growing area of a spherical shell</div>
+        <canvas id="plotRDF" height="300"></canvas>
+        <div class="legend">
+          <div class="leg-item"><div class="leg-line" id="leg-rdf" style="background:#06ffa5;opacity:0.4"></div><span>P(r) = r²R²(r)</span></div>
+          <div class="leg-item"><div class="leg-line dashed"></div><span>Node (ψ² = 0 here too)</span></div>
+          <div class="leg-item"><span class="mp-dot"></span><span>Most probable radius r_mp</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info bar -->
+    <div class="info-bar">
+      <div class="info-card">
+        <div class="label">Quantum Numbers</div>
+        <div class="value" id="inf-qn">n=1, l=0</div>
+        <div class="sub" id="inf-ml">mₗ = 0</div>
+      </div>
+      <div class="info-card">
+        <div class="label">Radial Nodes</div>
+        <div class="value" id="inf-rn" style="color:#ff5577">0</div>
+        <div class="sub">n − l − 1</div>
+      </div>
+      <div class="info-card">
+        <div class="label">Angular Nodes</div>
+        <div class="value" id="inf-an" style="color:#00ccff">0</div>
+        <div class="sub">= l (planes or cones)</div>
+      </div>
+      <div class="info-card">
+        <div class="label">Total Nodes</div>
+        <div class="value" id="inf-tn">0</div>
+        <div class="sub">n − 1 (always)</div>
+      </div>
+    </div>
+
+    <!-- Bottom: node analysis + shape panel -->
+    <div class="bottom-row">
+      <div class="node-panel">
+        <div class="panel-title" id="node-title">Node Analysis · 1s</div>
+        <div class="node-list" id="node-list"></div>
+        <div class="panel-title sec">Key properties</div>
+        <div class="facts" id="facts"></div>
+        <div class="panel-title sec">Radial probability bands</div>
+        <div class="plot-sub" style="margin-bottom:12px">Share of the electron's probability between successive radial nodes</div>
+        <div id="bands"></div>
+      </div>
+      <div class="shape-panel">
+        <div class="panel-title" id="shape-title">Angular Shape</div>
+        <div id="shape-content"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="backdrop" id="backdrop"></div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+// ORBITAL DATA
+// All in atomic units: a₀ = 1, Z = 1
+// ─────────────────────────────────────────────────────────────────
+const ORBITALS = {
+  '1s': {
+    n: 1, l: 0, ml: [0],
+    color: '#06ffa5',
+    rMax: 12,
+    R: r => 2 * Math.exp(-r),
+    radialNodes: [],
+    desc: 'Lowest energy state. Exponential decay from nucleus. No nodes — wave function is always positive. Spherically symmetric.',
+    angularDesc: 'Perfect sphere. No angular nodes. Electron density is highest at nucleus.',
+  },
+  '2s': {
+    n: 2, l: 0, ml: [0],
+    color: '#00cfff',
+    rMax: 22,
+    R: r => (1/(2*Math.sqrt(2))) * (2 - r) * Math.exp(-r/2),
+    radialNodes: [2],
+    desc: 'One radial node at r = 2a₀. Wave function crosses zero — goes positive→negative. RDF has two maxima separated by the node.',
+    angularDesc: 'Also a sphere (l=0). Larger than 1s. The radial node creates a spherical nodal shell at r = 2a₀.',
+  },
+  '2p': {
+    n: 2, l: 1, ml: [-1, 0, 1],
+    color: '#ff7043',
+    rMax: 22,
+    R: r => (1/(2*Math.sqrt(6))) * r * Math.exp(-r/2),
+    radialNodes: [],
+    desc: 'Zero radial nodes. R starts at 0 (r factor), peaks at r = 2a₀ (RDF peaks at 4a₀), then decays. Always non-negative. One angular nodal plane (l=1).',
+    angularDesc: 'Dumbbell shape (two lobes). One angular nodal plane passes through nucleus. Three degenerate: 2px, 2py, 2pz.',
+  },
+  '3s': {
+    n: 3, l: 0, ml: [0],
+    color: '#bf7bff',
+    rMax: 36,
+    R: r => (2/(81*Math.sqrt(3))) * (27 - 18*r + 2*r*r) * Math.exp(-r/3),
+    radialNodes: [1.9019, 7.0981],
+    desc: 'Two radial nodes (n−l−1=2) at r≈1.9a₀ and r≈7.1a₀. Wave function oscillates — three sign regions. Three peaks in RDF.',
+    angularDesc: 'Spherical (l=0). Two concentric spherical nodal shells. Electron can be found in three separate radial "bands".',
+  },
+  '3p': {
+    n: 3, l: 1, ml: [-1, 0, 1],
+    color: '#ffc107',
+    rMax: 36,
+    R: r => (8/(27*Math.sqrt(6))) * r * (1 - r/6) * Math.exp(-r/3),
+    radialNodes: [6],
+    desc: 'One radial node at r = 6a₀ (from factor 6−r). R is positive for r<6, negative for r>6. One angular nodal plane → total 2 nodes.',
+    angularDesc: 'Dumbbell shape like 2p, but larger and has an extra spherical radial node shell. Three degenerate: 3px, 3py, 3pz.',
+  },
+  '3d': {
+    n: 3, l: 2, ml: [-2, -1, 0, 1, 2],
+    color: '#ff4c8b',
+    rMax: 36,
+    R: r => (4/(81*Math.sqrt(30))) * r*r * Math.exp(-r/3),
+    radialNodes: [],
+    desc: 'Zero radial nodes (n−l−1=0). The r² factor forces R=0 at nucleus. R peaks at r = 6a₀ (RDF peaks at 9a₀). Two angular nodes (l=2) → 2 total nodes.',
+    angularDesc: 'Five d-orbitals with distinct 3D shapes. Two angular nodes each. See the five subtypes: dz², dx²−y², dxy, dxz, dyz.',
+    showDShapes: true,
+  },
+  '4s': {
+    n: 4, l: 0, ml: [0], color: '#b6ff3b', rMax: 60,
+    R: r => 0.25 * (1 - 0.75*r + r*r/8 - r*r*r/192) * Math.exp(-r/4),
+    radialNodes: [1.8716, 6.6108, 15.5175],
+    desc: 'Three radial nodes (n−l−1=3) at r≈1.87, 6.61 and 15.52a₀ split the density into four concentric bands. The outermost band holds the RDF maximum (r≈24.6a₀).',
+    angularDesc: 'Spherical (l=0) with three concentric nodal shells. Large outer band, small dense inner bands.',
+  },
+  '4p': {
+    n: 4, l: 1, ml: [-1, 0, 1], color: '#6c8cff', rMax: 60,
+    R: r => (Math.sqrt(5)/(16*Math.sqrt(3))) * r * (1 - r/4 + r*r/80) * Math.exp(-r/4),
+    radialNodes: [5.5279, 14.4721],
+    desc: 'Two radial nodes (n−l−1=2) at r = 10 ± 2√5 ≈ 5.53 and 14.47a₀, plus R=0 at the nucleus (rˡ factor). One angular nodal plane → 3 total nodes.',
+    angularDesc: 'Dumbbell shape with two extra spherical nodal shells. Three degenerate: 4px, 4py, 4pz.',
+  },
+  '4d': {
+    n: 4, l: 2, ml: [-2, -1, 0, 1, 2], color: '#ff9f43', rMax: 54,
+    R: r => (1/(64*Math.sqrt(5))) * r*r * (1 - r/12) * Math.exp(-r/4),
+    radialNodes: [12],
+    desc: 'One radial node at r = 12a₀ (factor 1−r/12): R is positive inside, negative outside. Two angular nodes (l=2) → 3 total nodes.',
+    angularDesc: 'Five d-orbitals with the same angular shapes as 3d, each wrapped by one extra spherical node at 12a₀.',
+  },
+  '4f': {
+    n: 4, l: 3, ml: [-3, -2, -1, 0, 1, 2, 3], color: '#f0abfc', rMax: 48,
+    R: r => (1/(768*Math.sqrt(35))) * r*r*r * Math.exp(-r/4),
+    radialNodes: [],
+    desc: 'No radial nodes (n−l−1=0). R ∝ r³e^(−r/4) peaks at r = 12a₀ and the RDF peaks at exactly r = n² = 16a₀. Three angular nodes (l=3) → 3 total nodes.',
+    angularDesc: 'Seven f-orbitals (real cubic set), each with three angular nodes. First shell where f appears.',
+  },
+};
+
+// 3s node positions: solve 27-18r+2r²=0 → r=(9±3√3)/2
+// ≈ 1.9019, 7.0981
+
+// ─────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────
+let current = '1s';
+let compareSet = new Set();
+let compareSetRDF = new Set();
+let plotRMax = 12;
+let lastShown = null;
+
+// ─────────────────────────────────────────────────────────────────
+// CANVAS SETUP
+// ─────────────────────────────────────────────────────────────────
+const canvasR   = document.getElementById('plotR');
+const canvasRDF = document.getElementById('plotRDF');
+const ctxR      = canvasR.getContext('2d');
+const ctxRDF    = canvasRDF.getContext('2d');
+
+function setupCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const cs = getComputedStyle(canvas.parentElement);
+  const w = rect.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const h = window.innerWidth < 640 ? 230 : 300;
+  canvas.width  = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width  = w + 'px';
+  canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { w, h };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// DRAW HELPERS
+// ─────────────────────────────────────────────────────────────────
+// ── Scene model ────────────────────────────────────────────────────────────
+// Each graph is described as plain data (axes, curves in normalised plot units, nodes, marker). Two scenes can be blended
+// into a third of the same shape, so a transition is just draw(mix(from, to, t)) and can be interrupted at any frame.
+const PAD = { l: 50, r: 14, t: 20, b: 28 }, NS = 500;
+const hex3 = h => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16));
+const lerp = (a, b, e) => a + (b - a)*e;
+const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2;
+const rdfOf = o => r => r*r*o.R(r)*o.R(r);
+const zero = S => S.yMax/(S.yMax - S.yMin);                       // normalised y of the zero line
+
+function sceneOf(kind, orb, rMax) {
+  const R = kind === 'R', fn = o => R ? o.R : rdfOf(o), keys = [...(R ? compareSet : compareSetRDF)].filter(k => k !== current);
+  let lo = 0, hi = 0;
+  [orb, ...keys.map(k => ORBITALS[k])].forEach(o => { const g = fn(o); for (let i = 0; i <= 1000; i++) { const v = g(i/1000*rMax); if (v < lo) lo = v; if (v > hi) hi = v; } });
+  const pad = Math.max(hi, -lo)*(R ? .15 : .1), yMin = lo < 0 ? lo - pad : 0, yMax = hi + pad;
+  const ys = o => { const g = fn(o), a = new Float32Array(NS + 1); for (let i = 0; i <= NS; i++) a[i] = 1 - (g(i/NS*rMax) - yMin)/(yMax - yMin); return a; };
+  const curves = keys.map(k => ({ id: k, main: false, ys: ys(ORBITALS[k]), c: hex3(ORBITALS[k].color), a: R ? .3 : .35, lw: 1.5, g: 0 }));
+  curves.push({ id: 'main', main: true, ys: ys(orb), c: hex3(orb.color), a: R ? 1 : .85, lw: R ? 2.5 : 2, g: R ? 8 : 0 });
+  let mp = null;
+  if (!R) { const g = rdfOf(orb); let mr = 0, mv = 0; for (let i = 1; i <= 2000; i++) { const r = i/2000*rMax, v = g(r); if (v > mv) { mv = v; mr = r; } } mp = { f: mr/rMax, r: mr }; }
+  return { kind, rMax, yMin, yMax, steps: [[[1, 2, 5, 10, 20, 50].find(q => rMax/q <= 8), 1]], curves, mp,
+           nodes: orb.radialNodes.map(r => ({ f: r/rMax, r, a: 1 })) };
+}
+
+// Blend two scenes. The curve "strand" is kept: sample by sample it flows from the old shape to the new one as a wave that
+// travels left → right; axes and tick labels slide; curves present on only one side grow from / sink into the zero line.
+function mix(A, B, t) {
+  const e = ease(t), L = (a, b) => lerp(a, b, e);
+  const arr = (a, b) => { const o = new Float32Array(NS + 1); for (let i = 0; i <= NS; i++) o[i] = lerp(a[i], b[i], ease(Math.min(1, Math.max(0, t*1.4 - i/NS*.4)))); return o; };
+  const flat = S => new Float32Array(NS + 1).fill(zero(S));
+  const side = (c, S, vanish) => ({ ...c, ys: flat(S), a: 0 });
+  const get = (S, id) => S.curves.find(c => c.id === id);
+  const ids = [...new Set([...A.curves, ...B.curves].filter(c => !c.main).map(c => c.id)), 'main'];
+  const curves = ids.map(id => {
+    const ca = get(A, id) || side(get(B, id), B), cb = get(B, id) || side(get(A, id), A);
+    return { id, main: id === 'main', ys: arr(ca.ys, cb.ys), c: ca.c.map((v, i) => L(v, cb.c[i])), a: L(ca.a, cb.a), lw: L(ca.lw, cb.lw), g: L(ca.g, cb.g) };
+  });
+  const st = {}; A.steps.forEach(([k, a]) => st[k] = (st[k] || 0) + a*(1 - e)); B.steps.forEach(([k, a]) => st[k] = (st[k] || 0) + a*e);
+  const nodes = []; for (let i = 0; i < Math.max(A.nodes.length, B.nodes.length); i++) {
+    const x = A.nodes[i], y = B.nodes[i];
+    nodes.push(x && y ? { f: L(x.f, y.f), r: L(x.r, y.r), a: L(x.a, y.a) } : y ? { ...y, a: L(0, y.a) } : { ...x, a: L(x.a, 0) });
+  }
+  return { kind: B.kind, rMax: L(A.rMax, B.rMax), yMin: L(A.yMin, B.yMin), yMax: L(A.yMax, B.yMax),
+           steps: Object.entries(st).map(([k, a]) => [+k, Math.min(1, a)]), curves, nodes,
+           mp: A.mp && B.mp ? { f: L(A.mp.f, B.mp.f), r: L(A.mp.r, B.mp.r) } : B.mp };
+}
+
+function drawScene(ctx, w, h, S) {
+  const pad = PAD, pw = w - pad.l - pad.r, ph = h - pad.t - pad.b, y0 = pad.t + zero(S)*ph, dpr = window.devicePixelRatio || 1;
+  const xAt = v => pad.l + v/S.rMax*pw, col = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1;
+  ctx.fillStyle = '#05050f'; ctx.fillRect(0, 0, w, h);
+  ctx.lineWidth = .5; ctx.font = '9px Space Mono, monospace'; ctx.textAlign = 'center';
+  S.steps.forEach(([st, a]) => { ctx.globalAlpha = a; for (let v = 0; v <= S.rMax + 1e-9; v += st) {
+    ctx.strokeStyle = '#12122a'; ctx.beginPath(); ctx.moveTo(xAt(v), pad.t); ctx.lineTo(xAt(v), h - pad.b); ctx.stroke();
+    ctx.fillStyle = '#444466'; ctx.fillText(String(v), xAt(v), h - pad.b + 12); } });
+  ctx.globalAlpha = 1; ctx.textAlign = 'right';
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.t + i/5*ph; ctx.strokeStyle = '#12122a'; ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+    ctx.fillStyle = '#444466'; ctx.fillText((S.yMax - i/5*(S.yMax - S.yMin)).toFixed(S.yMax - S.yMin < 0.2 ? 3 : 2), pad.l - 4, y + 3);
+  }
+  ctx.strokeStyle = '#2a2a4a'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, y0); ctx.lineTo(w - pad.r, y0); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, h - pad.b); ctx.stroke();
+  ctx.textAlign = 'center'; ctx.fillStyle = '#444466'; ctx.fillText('r / a₀', w/2, h - 2);
+  const path = ys => { ctx.beginPath(); for (let i = 0; i <= NS; i++) { const x = pad.l + i/NS*pw, y = pad.t + ys[i]*ph; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } };
+  const main = S.curves.find(c => c.main);
+  if (S.kind === 'D') {                                                      // filled area under P(r)
+    path(main.ys); ctx.lineTo(pad.l + pw, y0); ctx.lineTo(pad.l, y0); ctx.closePath();
+    const g = ctx.createLinearGradient(0, pad.t, 0, h - pad.b); g.addColorStop(0, col(main.c, .27)); g.addColorStop(1, col(main.c, 0));
+    ctx.fillStyle = g; ctx.fill();
+  }
+  S.curves.slice().sort((a, b) => a.main - b.main).forEach(c => {
+    if (c.a < .01) return;
+    ctx.save(); if (c.g > .5) { ctx.shadowColor = col(c.c, 1); ctx.shadowBlur = c.g; }
+    path(c.ys); ctx.strokeStyle = col(c.c, c.a); ctx.lineWidth = c.lw; ctx.lineJoin = 'round'; ctx.stroke(); ctx.restore();
+  });
+  S.nodes.forEach(n => {
+    if (n.a < .01) return; const x = pad.l + n.f*pw;
+    ctx.save(); ctx.strokeStyle = '#ff3355'; ctx.globalAlpha = .5*n.a; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, h - pad.b); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.globalAlpha = n.a; ctx.beginPath(); ctx.arc(x, y0, 4, 0, 6.2832); ctx.fillStyle = '#ff3355'; ctx.shadowColor = '#ff3355'; ctx.shadowBlur = 8; ctx.fill();
+    ctx.shadowBlur = 0; ctx.fillStyle = '#ff5577'; ctx.font = '8px Space Mono, monospace'; ctx.textAlign = 'center'; ctx.fillText(n.r.toFixed(1), x, pad.t - 2); ctx.restore();
+  });
+  if (S.mp) {                                                                // most-probable-radius marker rides the curve
+    const q = S.mp.f*NS, i = Math.min(NS - 1, Math.floor(q)), x = pad.l + S.mp.f*pw, y = pad.t + lerp(main.ys[i], main.ys[i + 1], q - i)*ph;
+    ctx.beginPath(); ctx.arc(x, y, 5, 0, 6.2832); ctx.fillStyle = col(main.c, 1); ctx.shadowColor = col(main.c, 1); ctx.shadowBlur = 10; ctx.fill(); ctx.shadowBlur = 0;
+    ctx.fillStyle = '#aaaacc'; ctx.font = '8px Space Mono, monospace'; ctx.textAlign = 'center'; ctx.fillText('r_mp≈' + S.mp.r.toFixed(1), x, y - 10);
+  }
+}
+
+// Builds the target scene, then morphs from whatever is currently on screen (so clicks can interrupt each other smoothly)
+let shown = null, ANIM = 0;
+function render(animate = true) {
+  const orb = ORBITALS[current];
+  const rMax = Math.max(orb.rMax, ...[...compareSet, ...compareSetRDF].map(k => ORBITALS[k].rMax));
+  plotRMax = rMax;
+  const goal = { R: sceneOf('R', orb, rMax), D: sceneOf('D', orb, rMax) };
+  const dims = [setupCanvas(canvasR), setupCanvas(canvasRDF)];
+  if (lastShown !== current) { lastShown = current; updateInfo(orb); }
+  const from = shown, tok = ++ANIM, t0 = performance.now();
+  const paint = t => {
+    shown = t >= 1 ? goal : { R: mix(from.R, goal.R, t), D: mix(from.D, goal.D, t) };
+    drawScene(ctxR, dims[0].w, dims[0].h, shown.R); drawScene(ctxRDF, dims[1].w, dims[1].h, shown.D);
+  };
+  if (!animate || !from || matchMedia('(prefers-reduced-motion: reduce)').matches) { paint(1); return; }
+  const step = now => { if (tok !== ANIM) return; const t = Math.min(1, (now - t0)/850); paint(t); if (t < 1) requestAnimationFrame(step); };
+  step(t0);
+}
+
+// Key properties + probability per radial band, all integrated numerically from R(r)
+function renderFacts(orb) {
+  const { n, l } = orb, dr = 0.02, M = Math.round(12*n*n/dr), cum = new Float64Array(M + 1);
+  let mean = 0, mp = 0, pm = 0;
+  for (let i = 1; i <= M; i++) {
+    const r = i*dr, q = r - dr, a = r*r*orb.R(r)**2, b = q*q*orb.R(q)**2;
+    cum[i] = cum[i-1] + .5*dr*(a + b); mean += .5*dr*(r*a + q*b);
+    if (a > pm) { pm = a; mp = r; }
+  }
+  const E = 13.605693/(n*n), shell = 'KLMN'[n-1], sub = ['sharp', 'principal', 'diffuse', 'fundamental'][l];
+  const tiles = [
+    ['Energy', `−${E.toFixed(3)} eV`, `Eₙ = −13.606/n² eV = −${(.5/(n*n)).toFixed(4)} Eₕ · same for all l`],
+    ['Mean radius ⟨r⟩', `${mean.toFixed(2)} a₀`, `[3n² − l(l+1)]/2 = ${(3*n*n - l*(l+1))/2}`],
+    ['Most probable r', `${mp.toFixed(2)} a₀`, 'global maximum of r²R²'],
+    ['Angular momentum', `${Math.sqrt(l*(l+1)).toFixed(3)} ħ`, l ? `√(l(l+1))ħ · L_z = mₗħ, from −${l}ħ to +${l}ħ` : 'l = 0 → no orbital angular momentum'],
+    ['Shell · subshell', `${shell} · ${sub}`, `${2*l+1} orbital${l ? 's' : ''} × 2 spins = ${2*(2*l+1)} electrons`],
+    ['Density at nucleus', l ? '0' : `${(1/(Math.PI*n**3)).toFixed(4)} a₀⁻³`, l ? 'R ∝ rˡ vanishes at r = 0' : '|ψ(0)|² = 1/(πn³)'],
+    ['Normalisation', cum[M].toFixed(4), '∫ r²R² dr, checked numerically'],
+    ['Shell capacity', `${2*n*n} e⁻`, `n² = ${n*n} orbitals in the n = ${n} shell`],
+  ];
+  document.getElementById('facts').innerHTML = tiles.map(([a, b, c]) =>
+    `<div class="fact"><div class="fl">${a}</div><div class="fv">${b}</div><div class="fs">${c}</div></div>`).join('');
+  const pts = [0, ...orb.radialNodes];
+  document.getElementById('bands').innerHTML = pts.map((a, i) => {
+    const e = i + 1 < pts.length ? pts[i+1] : null, pr = cum[e === null ? M : Math.round(e/dr)] - cum[Math.round(a/dr)];
+    const lab = e === null ? (a ? `r > ${a.toFixed(2)} a₀` : 'all r') : (a ? `${a.toFixed(2)} – ${e.toFixed(2)} a₀` : `r < ${e.toFixed(2)} a₀`);
+    return `<div class="band"><span>${lab}</span><div class="bar"><i style="--w:${(pr*100).toFixed(1)}%;background:${orb.color};box-shadow:0 0 8px ${orb.color}88"></i></div><b>${(pr*100).toFixed(1)}%</b></div>`;
+  }).join('');
+}
+
+function updateInfo(orb) {
+  const radNodes = orb.n - orb.l - 1;
+  const angNodes = orb.l;
+  const totalNodes = orb.n - 1;
+
+  document.getElementById('inf-qn').textContent = `n=${orb.n}, l=${orb.l}`;
+  document.getElementById('inf-ml').textContent = `mₗ = ${orb.ml.join(', ')} · ${orb.ml.length} degenerate orbital${orb.ml.length > 1 ? 's' : ''}`;
+  document.getElementById('inf-rn').textContent = radNodes;
+  document.getElementById('inf-an').textContent = angNodes;
+  document.getElementById('inf-tn').textContent = totalNodes;
+
+  document.getElementById('node-title').innerHTML = `Node analysis <b class="pt-orb" style="color:${orb.color}">${current}</b><span class="pt-sub">${totalNodes} node${totalNodes === 1 ? '' : 's'} in total · ${radNodes} radial + ${angNodes} angular</span>`;
+  document.getElementById('leg-main').style.background = orb.color;
+  document.getElementById('leg-rdf').style.background = orb.color;
+  document.getElementById('leg-main-label').textContent = current;
+
+  // Node list
+  const list = document.getElementById('node-list');
+  list.innerHTML = '';
+
+  const items = [];
+
+  // Radial nodes
+  if (radNodes === 0) {
+    items.push({
+      badge: 'RADIAL', cls: 'radial-badge',
+      desc: `No radial nodes for ${current}. R(r) does not cross zero (${orb.l > 0 ? 'except forced zero at r=0 by rˡ factor' : 'always positive'}).`,
+      pos: '—'
+    });
+  } else {
+    items.push({
+      badge: 'RADIAL', cls: 'radial-badge',
+      desc: `${radNodes} radial node${radNodes>1?'s':''}: spherical shell${radNodes>1?'s':''} where R(r)=0 and wave function changes sign.`,
+      pos: `r = ${orb.radialNodes.map(x=>x.toFixed(2)+'a₀').join(', ')}`
+    });
+  }
+
+  // Angular nodes
+  if (angNodes === 0) {
+    items.push({
+      badge: 'ANGULAR', cls: 'angular-badge',
+      desc: `l=0 → no angular nodes. Wave function is spherically symmetric (s-orbital). Same value in all directions.`,
+      pos: '—'
+    });
+  } else if (angNodes === 1) {
+    items.push({
+      badge: 'ANGULAR', cls: 'angular-badge',
+      desc: `l=1 → one angular nodal plane through the nucleus. px, py and pz have their nodal planes at yz, xz and xy respectively.`,
+      pos: 'Nodal plane through origin'
+    });
+  } else if (angNodes === 2) {
+    items.push({
+      badge: 'ANGULAR', cls: 'angular-badge',
+      desc: `l=2 → two angular nodes. dx²−y², dxy, dxz, dyz: two nodal planes. dz²: two nodal cones at θ = 54.7° and 125.3°.`,
+      pos: 'Nodal planes (dx²−y², dxy, dxz, dyz) · nodal cones (dz²)'
+    });
+  }
+
+  if (angNodes === 3) items.push({
+    badge: 'ANGULAR', cls: 'angular-badge',
+    desc: `l=3 → three angular nodes (planes and/or cones, depending on the f-orbital). Seven degenerate orbitals.`,
+    pos: 'e.g. fxyz: the xy, xz and yz planes'
+  });
+
+  // Behavior notes
+  items.push({
+    badge: 'BEHAVIOR', cls: 'angular-badge',
+    desc: orb.desc,
+    pos: ''
+  });
+
+  items.forEach(it => {
+    const div = document.createElement('div');
+    div.className = 'node-item';
+    div.innerHTML = `
+      <span class="node-badge ${it.cls}">${it.badge}</span>
+      <div>
+        <div class="node-desc">${it.desc}</div>
+        ${it.pos ? `<div class="node-pos">${it.pos}</div>` : ''}
+      </div>`;
+    list.appendChild(div);
+  });
+
+  renderFacts(orb);
+  updateShapePanel(orb);
+  ['node-list', 'facts', 'bands', 'shape-content'].forEach(id => { const e = document.getElementById(id); e.classList.remove('fade'); void e.offsetWidth; e.classList.add('fade'); });
+  document.querySelectorAll('.info-card .value').forEach(e => { e.classList.remove('fade'); void e.offsetWidth; e.classList.add('fade'); });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ANGULAR SHAPE PANEL
+// ─────────────────────────────────────────────────────────────────
+// Real angular functions evaluated on the unit sphere (x²+y²+z²=1)
+const AX = { x: '#ff5577', y: '#06ffa5', z: '#4da3ff' };
+const ANG = {
+  0: [['s', () => 1, 'Sphere · same in every direction · no angular node']],
+  1: [['px', (x) => x, '2 lobes on the x-axis · node: yz-plane'],
+      ['py', (x, y) => y, '2 lobes on the y-axis · node: xz-plane'],
+      ['pz', (x, y, z) => z, '2 lobes on the z-axis · node: xy-plane']],
+  2: [['dz²', (x, y, z) => 3*z*z - 1, '2 lobes on z + a donut-shaped ring of opposite sign around the xy-plane', surfDz2],
+      ['dx²−y²', (x, y) => x*x - y*y, '4 lobes along the x and y axes'],
+      ['dxy', (x, y) => x*y, '4 lobes between the x and y axes'],
+      ['dxz', (x, y, z) => x*z, '4 lobes between the x and z axes'],
+      ['dyz', (x, y, z) => y*z, '4 lobes between the y and z axes']],
+  3: [['fz³', (x, y, z) => z*(5*z*z - 3), '2 lobes on z + two donut-shaped rings (one above, one below the xy-plane)', surfFz3],
+      ['fxz²', (x, y, z) => x*(5*z*z - 1), '6 lobes: 2 on the x-axis, 4 tilted from ±z toward ±x'],
+      ['fyz²', (x, y, z) => y*(5*z*z - 1), '6 lobes: 2 on the y-axis, 4 tilted from ±z toward ±y'],
+      ['fxyz', (x, y, z) => x*y*z, '8 lobes pointing into the cube corners'],
+      ['fz(x²−y²)', (x, y, z) => z*(x*x - y*y), '8 lobes: 4 above and 4 below the xy-plane'],
+      ['fx(x²−3y²)', (x, y) => x*(x*x - 3*y*y), '6 lobes in the xy-plane · one on +x'],
+      ['fy(3x²−y²)', (x, y) => y*(3*x*x - y*y), '6 lobes in the xy-plane · one on +y']],
+};
+const negOf = h => '#' + [1, 3, 5].map(i => Math.round(.65*(255 - parseInt(h.substr(i, 2), 16)) + 89).toString(16).padStart(2, '0')).join('');
+const SURF = {}, VIEW = {};
+
+// Axisymmetric shapes (dz², fz³): isosurface |ψ| = c of  rˡe^(−r)·|Yₗ⁰|  (generic nodeless envelope). Plotting r = |Y| alone pinches the
+// ring into a solid disc; the isosurface gives two lobes plus a genuine torus with a hole. Each closed cross-section in
+// the (ρ,z) half-plane is found by ray-marching from its centre, then revolved about z with exact outward normals.
+function revolve(F, LV, parts, NP) {
+  const edge = (p0, z0, a) => {
+    const dp = Math.sin(a), dz = Math.cos(a); let lo = 0, hi = .05;
+    while (F(p0 + dp*hi, z0 + dz*hi) >= LV && hi < 14) { lo = hi; hi += .05; }
+    for (let k = 0; k < 40; k++) { const m = (lo + hi)/2; if (F(p0 + dp*m, z0 + dz*m) >= LV) lo = m; else hi = m; }
+    return lo;
+  };
+  const rings = [];
+  let big = 0;
+  parts.forEach(([p0, z0, na, closed, sg]) => {
+    const n = closed ? na : na + 1, C = [];
+    for (let i = 0; i < n; i++) { const a = closed ? 2*Math.PI*i/na : Math.PI*i/na, d = edge(p0, z0, a); C.push([p0 + Math.sin(a)*d, z0 + Math.cos(a)*d]); big = Math.max(big, Math.hypot(...C[i])); }
+    rings.push({ C, p0, z0, closed, sg });
+  });
+  const pts = []; rings.forEach(({ C, p0, z0, closed, sg }) => C.forEach((c, i) => {
+    const a = C[closed ? (i + 1)%C.length : Math.min(i + 1, C.length - 1)], b = C[closed ? (i + C.length - 1)%C.length : Math.max(i - 1, 0)];
+    let np = a[1] - b[1], nz = -(a[0] - b[0]); const l = Math.hypot(np, nz) || 1; np /= l; nz /= l;
+    if (np*(c[0] - p0) + nz*(c[1] - z0) < 0) { np = -np; nz = -nz; }              // outward from the solid
+    pts.push([c[0], c[1], np, nz, sg]);
+  }));
+  const n = pts.length*NP, P = new Float32Array(n*3), N = new Float32Array(n*3), Sg = new Int8Array(n);
+  pts.forEach(([p, z, np, nz, sg], i) => { for (let j = 0; j < NP; j++) {
+    const k = i*NP + j, ph = 2*Math.PI*j/NP, cs = Math.cos(ph), sn = Math.sin(ph);
+    P[3*k] = p*cs/big; P[3*k+1] = p*sn/big; P[3*k+2] = z/big; N[3*k] = np*cs; N[3*k+1] = np*sn; N[3*k+2] = nz; Sg[k] = sg;
+  } });
+  return { n, P, N, Sg };
+}
+// parts = [ρ-centre, z-centre, samples, closed ring?, phase sign]; F = e^(−r)·|r^l·Yₗ⁰| written in (ρ,z)
+function surfDz2() {                // F = e^(−r)|2z² − ρ²| : two + lobes and one − torus
+  return revolve((p, z) => Math.exp(-Math.hypot(p, z))*Math.abs(2*z*z - p*p), .42,
+    [[0, 2, 50, false, 1], [0, -2, 50, false, 1], [2.17, 0, 90, true, -1]], 260);
+}
+function surfFz3() {                // F = e^(−r)|z(2z² − 3ρ²)| : + lobe up, − lobe down, − ring above, + ring below the xy-plane
+  return revolve((p, z) => Math.exp(-Math.hypot(p, z))*Math.abs(z*(2*z*z - 3*p*p)), .7,
+    [[0, 3, 44, false, 1], [0, -3, 44, false, -1], [2.68, 1.34, 80, true, -1], [2.68, -1.34, 80, true, 1]], 240);
+}
+
+// Surface r = |f(θ,φ)| on a 150×300 grid: positions, smooth normals (finite differences) and phase sign
+function surf(key, f, build) {
+  if (SURF[key]) return SURF[key];
+  if (build) return SURF[key] = build();
+  const NT = 150, NP = 300, n = (NT + 1)*NP, P = new Float32Array(n*3), N = new Float32Array(n*3), Sg = new Int8Array(n), raw = new Float64Array(n);
+  let m = 0;
+  for (let i = 0; i <= NT; i++) for (let j = 0; j < NP; j++) {
+    const t = Math.PI*i/NT, p = 2*Math.PI*j/NP, v = f(Math.sin(t)*Math.cos(p), Math.sin(t)*Math.sin(p), Math.cos(t));
+    raw[i*NP + j] = v; m = Math.max(m, Math.abs(v));
+  }
+  for (let i = 0; i <= NT; i++) for (let j = 0; j < NP; j++) {
+    const t = Math.PI*i/NT, p = 2*Math.PI*j/NP, k = i*NP + j, a = Math.abs(raw[k])/m;
+    P[3*k] = Math.sin(t)*Math.cos(p)*a; P[3*k+1] = Math.sin(t)*Math.sin(p)*a; P[3*k+2] = Math.cos(t)*a; Sg[k] = raw[k] >= 0 ? 1 : -1;
+  }
+  for (let i = 0; i <= NT; i++) for (let j = 0; j < NP; j++) {
+    const k = i*NP + j, A = 3*((i < NT ? i + 1 : i)*NP + j), B = 3*((i > 0 ? i - 1 : i)*NP + j), C = 3*(i*NP + (j + 1)%NP), D = 3*(i*NP + (j + NP - 1)%NP);
+    const tx = P[A] - P[B], ty = P[A+1] - P[B+1], tz = P[A+2] - P[B+2], ux = P[C] - P[D], uy = P[C+1] - P[D+1], uz = P[C+2] - P[D+2];
+    let nx = ty*uz - tz*uy, ny = tz*ux - tx*uz, nz = tx*uy - ty*ux, l = Math.hypot(nx, ny, nz);
+    if (l < 1e-9) { nx = P[3*k]; ny = P[3*k+1]; nz = P[3*k+2] || 1; l = Math.hypot(nx, ny, nz) || 1; }   // poles: radial
+    nx /= l; ny /= l; nz /= l;
+    if (nx*P[3*k] + ny*P[3*k+1] + nz*P[3*k+2] < 0) { nx = -nx; ny = -ny; nz = -nz; }                      // star-shaped → outward
+    N[3*k] = nx; N[3*k+1] = ny; N[3*k+2] = nz;
+  }
+  return SURF[key] = { n, P, N, Sg };
+}
+
+// Software z-buffer: splat every front-facing sample, Lambert + specular + rim light in the orbital's colours
+function raster(cv, g, v, cols) {
+  const B = cv._B, f = cv._f, h = f >> 1, zb = cv._zb, px = cv._px, c = B/2, K = B*0.29, P = g.P, N = g.N, Sg = g.Sg;
+  const ca = Math.cos(v.az), sa = Math.sin(v.az), ce = Math.cos(v.el), se = Math.sin(v.el);
+  zb.fill(1e9); px.fill(0);
+  for (let k = 0, o = 0; k < g.n; k++, o += 3) {
+    const x = P[o], y = P[o+1], z = P[o+2];
+    if (x*x + y*y + z*z < 1.6e-5) continue;
+    const nx = N[o], ny = N[o+1], nz = N[o+2], nyv = nx*sa + ny*ca, nd = nyv*ce - nz*se;
+    if (nd > 0.04) continue;                                            // faces away from the viewer
+    const nr = nx*ca - ny*sa, nu = nyv*se + nz*ce, y1 = x*sa + y*ca, d = y1*ce - z*se;
+    const sx = (c + (x*ca - y*sa)*K) | 0, sy = (c - (y1*se + z*ce)*K) | 0;
+    let dif = -.45*nr + .55*nu - .70*nd; if (dif < 0) dif = 0;
+    const d2 = dif*dif, d4 = d2*d2, spec = 95*d4*d4*d2, fr = (1 + nd)*(1 + nd), ii = .30 + .72*dif + .6*fr, base = Sg[k] > 0 ? cols[0] : cols[1];
+    const r = Math.min(255, base[0]*ii + spec), gg = Math.min(255, base[1]*ii + spec), b = Math.min(255, base[2]*ii + spec);
+    const col = (255 << 24) | (b << 16) | (gg << 8) | r;
+    for (let dy = 0; dy < f; dy++) { const yy = sy + dy - h; if (yy < 0 || yy >= B) continue;
+      for (let dx = 0; dx < f; dx++) { const xx = sx + dx - h; if (xx < 0 || xx >= B) continue; const q = yy*B + xx; if (d < zb[q]) { zb[q] = d; px[q] = col; } } }
+  }
+}
+
+function paint(cv, skey, v, cols, glow) {
+  const S = cv._S, c = S/2, K = S*0.29, dpr = window.devicePixelRatio || 1, ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#08081a'; ctx.fillRect(0, 0, S, S);
+  const ca = Math.cos(v.az), sa = Math.sin(v.az), ce = Math.cos(v.el), se = Math.sin(v.el);
+  // z up, x right, y into the screen (right-handed); spin about z, then tilt
+  const pr = (x, y, z) => { const x1 = x*ca - y*sa, y1 = x*sa + y*ca; return [y1*ce - z*se, c + x1*K, c - (y1*se + z*ce)*K]; };
+  const ax = [['x', [1, 0, 0]], ['y', [0, 1, 0]], ['z', [0, 0, 1]]].map(([n, a]) =>
+    ({ n, p: pr(...a.map(q => q*1.3)), q: pr(...a.map(q => -q*1.3)), l: pr(...a.map(q => q*1.58)) }));
+  const half = front => { ctx.lineWidth = 1; ctx.setLineDash([3, 3]); ax.forEach(t => [t.p, t.q].forEach(e => {
+    if ((e[0] < 0) !== front) return;
+    ctx.strokeStyle = AX[t.n]; ctx.globalAlpha = front ? .8 : .4; ctx.beginPath(); ctx.moveTo(c, c); ctx.lineTo(e[1], e[2]); ctx.stroke(); })); ctx.setLineDash([]); };
+  ctx.strokeStyle = '#2a2a4a'; ctx.globalAlpha = .8; ctx.setLineDash([2, 4]); ctx.beginPath();     // xy-plane reference ring
+  for (let i = 0; i <= 72; i++) { const q = pr(1.3*Math.cos(i*Math.PI/36), 1.3*Math.sin(i*Math.PI/36), 0); i ? ctx.lineTo(q[1], q[2]) : ctx.moveTo(q[1], q[2]); }
+  ctx.stroke(); ctx.setLineDash([]);
+  half(false);
+  raster(cv, SURF[skey], v, cols);
+  cv._octx.putImageData(cv._img, 0, 0);
+  ctx.save(); ctx.globalAlpha = 1; ctx.shadowColor = glow + '99'; ctx.shadowBlur = 12*dpr; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(cv._off, 0, 0, S, S); ctx.restore();
+  half(true);
+  ctx.globalAlpha = 1; ctx.font = '700 11px Space Mono, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ax.forEach(t => { ctx.fillStyle = AX[t.n]; ctx.fillText(t.n, t.l[1], t.l[2]); });
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(c, c, 2, 0, 6.2832); ctx.fill();
+}
+
+function mountShape(grid, orb, [name, f, desc, build]) {
+  const key = orb.n + name, skey = orb.l + name, S = window.innerWidth < 640 ? 148 : 176, dpr = window.devicePixelRatio || 1;
+  const B = Math.round(S*dpr*(dpr >= 2 ? 1 : 2)), hex = h => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16));
+  const cols = [hex(orb.color), hex(negOf(orb.color))], home = () => ({ az: .6, el: .4 });
+  VIEW[key] = VIEW[key] || home();
+  surf(skey, f, build);
+  const item = document.createElement('div');
+  item.className = 'd-shape-item'; item.style.setProperty('--S', S + 'px');
+  item.innerHTML = `<div class="d-shape-name" style="color:${orb.color};text-shadow:0 0 10px ${orb.color}">${key}</div>
+    <div class="d-canvas-wrap"><canvas tabindex="0" role="img" aria-label="${key} orbital, 3D. Drag or use arrow keys to rotate."></canvas></div>
+    <div class="d-shape-desc">${desc}</div>`;
+  grid.appendChild(item);
+  const cv = item.querySelector('canvas'), off = document.createElement('canvas'), buf = new ArrayBuffer(B*B*4);
+  cv._S = S; cv.width = cv.height = S*dpr; cv.style.width = cv.style.height = S + 'px'; cv.style.cursor = 'grab';
+  off.width = off.height = B;
+  Object.assign(cv, { _B: B, _f: Math.max(3, Math.ceil(B*.0092)), _zb: new Float32Array(B*B), _off: off, _octx: off.getContext('2d'),
+    _px: new Uint32Array(buf), _img: new ImageData(new Uint8ClampedArray(buf), B, B) });
+  const draw = () => paint(cv, skey, VIEW[key], cols, orb.color);
+  let raf = 0, last = null, vel = [0, 0], tm = 0;
+  const later = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); };
+  const turn = (da, de) => { const v = VIEW[key]; v.az += da; v.el = Math.max(-1.5, Math.min(1.5, v.el + de)); later(); };
+  const glide = () => { if (last || Math.hypot(vel[0], vel[1]) < .0004) return; turn(vel[0], vel[1]); vel = [vel[0]*.93, vel[1]*.93]; requestAnimationFrame(glide); };
+  cv.addEventListener('pointerdown', e => { last = [e.clientX, e.clientY]; vel = [0, 0]; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; });
+  cv.addEventListener('pointermove', e => { if (!last) return; vel = [(e.clientX - last[0])*.012, (e.clientY - last[1])*.012]; tm = performance.now(); turn(vel[0], vel[1]); last = [e.clientX, e.clientY]; });
+  ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => { last = null; cv.style.cursor = 'grab'; if (performance.now() - tm > 80) vel = [0, 0]; glide(); }));
+  cv.addEventListener('dblclick', () => { VIEW[key] = home(); vel = [0, 0]; draw(); });
+  cv.addEventListener('keydown', e => {
+    const d = { ArrowLeft: [-.15, 0], ArrowRight: [.15, 0], ArrowUp: [0, -.15], ArrowDown: [0, .15] }[e.key];
+    if (d) { e.preventDefault(); turn(...d); }
+  });
+  draw();
+}
+
+function updateShapePanel(orb) {
+  const L = 'spdf'[orb.l], list = ANG[orb.l], panel = document.getElementById('shape-content');
+  document.getElementById('shape-title').innerHTML = `Angular shapes <b class="pt-orb" style="color:${orb.color}">${orb.n}${L}</b><span class="pt-sub">${['One', 'Three', 'Five', 'Seven'][orb.l]} real orbital${orb.l ? 's' : ''} · interactive 3D · angular part Yₗᵐ</span>`;
+  panel.classList.remove('free');
+  const note = orb.l === 0
+    ? `Spherically symmetric: a single orbital with the same value in every direction and no angular node.`
+    : `All ${list.length} ${orb.n}${L}-orbitals share the <strong style="color:${orb.color}">same R(r)</strong>, so their radial graphs are identical. They differ only in the angular part Yₗᵐ and each has <strong style="color:#00ccff">${orb.l} angular node${orb.l > 1 ? 's' : ''}</strong> (l = ${orb.l}).`;
+  panel.innerHTML = `
+    <div class="shape-bar">
+      <span class="ph"><i style="background:${orb.color}"></i>+ phase</span>
+      <span class="ph"><i style="background:${negOf(orb.color)}"></i>− phase</span>
+      <span>Drag or arrow keys to rotate · double-click or double-tap to reset</span>
+      <button class="free-btn" id="free-btn">Free rotate</button>
+    </div>
+    <div class="d-shapes-grid" id="d-shapes-grid"></div>
+    <div style="margin-top:14px;padding:12px 14px;background:${orb.color}11;border:1px solid ${orb.color}44;border-radius:8px;font-size:12px;color:#ccccee;line-height:1.8">
+      ${note}<br><span style="color:var(--muted);font-size:10px">Surfaces plot r = |Yₗᵐ(θ,φ)| for the real combinations of Yₗᵐ, shaded for depth and each scaled to fill its box.${orb.l === 2 ? ' dz² is the exception: it is drawn as an isosurface of |ψ| (generic nodeless envelope r²e<sup>−r</sup>) so its ring is a true torus; a polar plot of |Y| would flatten it into a disc.' : orb.l === 3 ? ' fz³ is the exception: it is drawn as an isosurface of |ψ| (generic nodeless envelope r³e<sup>−r</sup>) so its two rings are true tori (a double donut); a polar plot of |Y| would flatten them into discs.' : ''} Axes: x red, y green, z blue.</span>
+    </div>`;
+  document.getElementById('free-btn').addEventListener('click', e => e.currentTarget.classList.toggle('on', panel.classList.toggle('free')));
+  const grid = document.getElementById('d-shapes-grid');
+  list.forEach(sh => mountShape(grid, orb, sh));
+}
+
+// ─────────────────────────────────────────────────────────────────
+// COMPARE SIDEBAR
+// ─────────────────────────────────────────────────────────────────
+function buildCompareList(id, set) {
+  const div = document.getElementById(id), clear = document.getElementById('clear-' + id);
+  div.innerHTML = '';
+  const sync = () => {
+    div.querySelectorAll('.toggle-row').forEach(r => { const on = set.has(r.dataset.key); r.classList.toggle('on', on); r.setAttribute('aria-checked', on); });
+    clear.disabled = set.size === 0;
+    clear.textContent = set.size ? `Clear (${set.size})` : 'Clear';
+  };
+  Object.keys(ORBITALS).forEach(key => {
+    const row = document.createElement('div');
+    row.className = 'toggle-row'; row.dataset.key = key; row.tabIndex = 0; row.setAttribute('role', 'checkbox');
+    row.style.setProperty('--c', ORBITALS[key].color);
+    row.innerHTML = `<div class="checkbox"></div><span>${key}</span>`;
+    const flip = () => { set.has(key) ? set.delete(key) : set.add(key); sync(); render(); };
+    row.addEventListener('click', flip);
+    row.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); } });
+    div.appendChild(row);
+  });
+  clear.onclick = () => { set.clear(); sync(); render(); };
+  sync();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ORBITAL BUTTONS
+// ─────────────────────────────────────────────────────────────────
+document.querySelectorAll('.orbital-btn').forEach(b => b.style.setProperty('--c', ORBITALS[b.dataset.orb].color));
+document.querySelectorAll('.orbital-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.orbital-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    current = btn.dataset.orb;
+    document.body.classList.remove('drawer-open');
+    render();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────
+// TOOLTIP ON HOVER (main R canvas)
+// ─────────────────────────────────────────────────────────────────
+const tooltip = document.getElementById('tooltip');
+function bindTip(canvas, mode) {
+  const show = e => {
+    const rect = canvas.getBoundingClientRect();
+    const padL = 50, padR = 14;
+    const r = ((e.clientX - rect.left - padL) / (rect.width - padL - padR)) * plotRMax;
+    if (r < 0 || r > plotRMax) { tooltip.style.display = 'none'; return; }
+    const set = mode === 'R' ? compareSet : compareSetRDF;
+    const vals = [current, ...[...set].filter(k => k !== current)].map(k => {
+      const o = ORBITALS[k], Rv = o.R(r), v = mode === 'R' ? Rv : r*r*Rv*Rv;
+      return `<span style="color:${o.color}">${k}</span> ${v.toExponential(2)}`;
+    }).join(' &nbsp;|&nbsp; ');
+    tooltip.innerHTML = `${mode === 'R' ? 'R(r)' : 'r²R²'} at r = ${r.toFixed(2)} a₀ &nbsp;·&nbsp; ${vals}`;
+    tooltip.style.display = 'block';
+    tooltip.style.left = Math.max(8, Math.min(e.clientX + 14, innerWidth - tooltip.offsetWidth - 8)) + 'px';
+    tooltip.style.top = Math.max(8, e.clientY - 46) + 'px';
+  };
+  canvas.addEventListener('pointermove', show);
+  canvas.addEventListener('pointerdown', show);
+  canvas.addEventListener('pointerleave', () => { tooltip.style.display = 'none'; });
+}
+bindTip(canvasR, 'R');
+bindTip(canvasRDF, 'RDF');
+
+// ─────────────────────────────────────────────────────────────────
+// INIT + RESIZE
+// ─────────────────────────────────────────────────────────────────
+buildCompareList('compare-list', compareSet);
+buildCompareList('compare-list-rdf', compareSetRDF);
+
+// phone drawer
+document.getElementById('menu-btn').addEventListener('click', () => document.body.classList.toggle('drawer-open'));
+document.getElementById('backdrop').addEventListener('click', () => document.body.classList.remove('drawer-open'));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.body.classList.remove('drawer-open'); });
+
+render();
+
+let lastW = window.innerWidth;
+window.addEventListener('resize', () => {
+  if (window.innerWidth === lastW) return;
+  lastW = window.innerWidth;
+  clearTimeout(window._resizeTimer);
+  window._resizeTimer = setTimeout(() => { lastShown = null; render(false); }, 80);
+});
+</script>
+</body>
+</html>
