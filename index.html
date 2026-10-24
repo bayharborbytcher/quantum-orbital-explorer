@@ -1072,14 +1072,35 @@ function mountShape(grid, orb, [name, f, desc, build]) {
   Object.assign(cv, { _B: B, _f: Math.max(3, Math.ceil(B*.0092)), _zb: new Float32Array(B*B), _off: off, _octx: off.getContext('2d'),
     _px: new Uint32Array(buf), _img: new ImageData(new Uint8ClampedArray(buf), B, B) });
   const draw = () => paint(cv, skey, VIEW[key], cols, orb.color);
-  let raf = 0, last = null, vel = [0, 0], tm = 0;
+  let raf = 0, last = null, vel = [0, 0], tm = 0, homing = 0, lastT = 0;
   const later = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); };
-  const turn = (da, de) => { const v = VIEW[key]; v.az += da; v.el = Math.max(-1.5, Math.min(1.5, v.el + de)); later(); };
-  const glide = () => { if (last || Math.hypot(vel[0], vel[1]) < .0004) return; turn(vel[0], vel[1]); vel = [vel[0]*.93, vel[1]*.93]; requestAnimationFrame(glide); };
-  cv.addEventListener('pointerdown', e => { last = [e.clientX, e.clientY]; vel = [0, 0]; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; });
+  const turn = (da, de) => { homing++; const v = VIEW[key]; v.az += da; v.el = Math.max(-1.5, Math.min(1.5, v.el + de)); later(); };
+  const glide = (now = performance.now()) => {
+    if (last || Math.hypot(vel[0], vel[1]) < .0004) { lastT = 0; return; }
+    const dt = lastT ? Math.max(0, Math.min(50, now - lastT)) / 16.67 : 1, k = Math.pow(.93, dt);
+    lastT = now; turn(vel[0]*dt, vel[1]*dt); vel = [vel[0]*k, vel[1]*k]; requestAnimationFrame(glide);
+  };
+  // double-click: ease back to the default view along the shortest rotation
+  const goHome = () => {
+    const h = home(), v = VIEW[key], tok = ++homing, TAU = Math.PI*2;
+    const a0 = v.az, e0 = v.el, da = (((h.az - a0 + Math.PI) % TAU) + TAU) % TAU - Math.PI, de = h.el - e0;
+    vel = [0, 0];
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches || (Math.abs(da) < 1e-3 && Math.abs(de) < 1e-3)) { v.az = h.az; v.el = h.el; draw(); return; }
+    const dur = Math.min(850, 380 + 140*Math.hypot(da, de)), t0 = performance.now();
+    const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3)/2;
+    const step = now => {
+      if (tok !== homing) return;
+      const t = Math.min(1, Math.max(0, now - t0)/dur), k = ease(t), c = VIEW[key];
+      c.az = t >= 1 ? h.az : a0 + da*k; c.el = t >= 1 ? h.el : e0 + de*k;
+      draw();
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+  cv.addEventListener('pointerdown', e => { homing++; last = [e.clientX, e.clientY]; vel = [0, 0]; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; });
   cv.addEventListener('pointermove', e => { if (!last) return; vel = [(e.clientX - last[0])*.012, (e.clientY - last[1])*.012]; tm = performance.now(); turn(vel[0], vel[1]); last = [e.clientX, e.clientY]; });
   ['pointerup', 'pointercancel'].forEach(t => cv.addEventListener(t, () => { last = null; cv.style.cursor = 'grab'; if (performance.now() - tm > 80) vel = [0, 0]; glide(); }));
-  cv.addEventListener('dblclick', () => { VIEW[key] = home(); vel = [0, 0]; draw(); });
+  cv.addEventListener('dblclick', goHome);
   cv.addEventListener('keydown', e => {
     const d = { ArrowLeft: [-.15, 0], ArrowRight: [.15, 0], ArrowUp: [0, -.15], ArrowDown: [0, .15] }[e.key];
     if (d) { e.preventDefault(); turn(...d); }
